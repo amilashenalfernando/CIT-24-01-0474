@@ -1,0 +1,172 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>CloudTask - Docker Multi-Service Container App</title>
+    <!-- Google Fonts -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&family=JetBrains+Mono:wght@400;500;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+</head>
+<body>
+    <div class="background-glow glow-1"></div>
+    <div class="background-glow glow-2"></div>
+
+    <div class="app-container">
+        <!-- Top Navigation / Header -->
+        <header class="header">
+            <div class="brand">
+                <div class="logo-icon">
+                    <svg viewBox="0 0 24 24" width="28" height="28" fill="none" stroke="currentColor" stroke-width="2">
+                        <path d="M22 12h-4l-3 9L9 3l-3 9H2"/>
+                    </svg>
+                </div>
+                <div>
+                    <h1>CloudTask <span class="badge-accent">Dockerized</span></h1>
+                    <p class="subtitle">CCS3308 Multi-Container Web Application & Persistent Store</p>
+                </div>
+            </div>
+
+            <!-- Diagnostics Bar -->
+            <div class="cluster-status">
+                <div class="status-chip">
+                    <span class="status-dot online"></span>
+                    <span class="chip-label">Web Container:</span>
+                    <span class="chip-value mono" id="container-host">{{ hostname }}</span>
+                </div>
+                <div class="status-chip">
+                    <span class="status-dot {% if db_connected %}online{% else %}error{% endif %}"></span>
+                    <span class="chip-label">PostgreSQL:</span>
+                    <span class="chip-value mono">{{ db_host }}</span>
+                </div>
+                <div class="status-chip">
+                    <span class="status-dot storage"></span>
+                    <span class="chip-label">Volume:</span>
+                    <span class="chip-value mono">taskmanager_pgdata</span>
+                </div>
+            </div>
+        </header>
+
+        <!-- Stats Overview Cards -->
+        <section class="stats-grid">
+            <div class="stat-card">
+                <div class="stat-icon total-icon">📋</div>
+                <div class="stat-info">
+                    <span class="stat-label">Total Tasks</span>
+                    <h3 class="stat-value" id="stat-total">-</h3>
+                </div>
+            </div>
+            <div class="stat-card">
+                <div class="stat-icon pending-icon">⏳</div>
+                <div class="stat-info">
+                    <span class="stat-label">In Progress</span>
+                    <h3 class="stat-value" id="stat-pending">-</h3>
+                </div>
+            </div>
+            <div class="stat-card">
+                <div class="stat-icon completed-icon">✅</div>
+                <div class="stat-info">
+                    <span class="stat-label">Completed</span>
+                    <h3 class="stat-value" id="stat-completed">-</h3>
+                </div>
+            </div>
+            <div class="stat-card">
+                <div class="stat-icon views-icon">👁️</div>
+                <div class="stat-info">
+                    <span class="stat-label">Persistent Visits</span>
+                    <h3 class="stat-value" id="stat-views">{{ total_views }}</h3>
+                </div>
+            </div>
+        </section>
+
+        <!-- Main Content Area -->
+        <div class="main-layout">
+            <!-- Left: Add New Task Form -->
+            <aside class="sidebar-card">
+                <div class="card-header">
+                    <h2>Create New Task</h2>
+                    <p>State will be saved directly into the PostgreSQL volume.</p>
+                </div>
+                <form id="add-task-form">
+                    <div class="form-group">
+                        <label for="task-title">Task Title *</label>
+                        <input type="text" id="task-title" placeholder="e.g. Configure Docker Swarm / Compose" required>
+                    </div>
+
+                    <div class="form-group">
+                        <label for="task-desc">Description</label>
+                        <textarea id="task-desc" rows="3" placeholder="Add relevant details or verification steps..."></textarea>
+                    </div>
+
+                    <div class="form-row">
+                        <div class="form-group flex-1">
+                            <label for="task-priority">Priority</label>
+                            <select id="task-priority">
+                                <option value="High">High 🔴</option>
+                                <option value="Medium" selected>Medium 🟡</option>
+                                <option value="Low">Low 🟢</option>
+                            </select>
+                        </div>
+                        <div class="form-group flex-1">
+                            <label for="task-category">Category</label>
+                            <select id="task-category">
+                                <option value="Docker" selected>Docker</option>
+                                <option value="Database">Database</option>
+                                <option value="DevOps">DevOps</option>
+                                <option value="Testing">Testing</option>
+                                <option value="General">General</option>
+                            </select>
+                        </div>
+                    </div>
+
+                    <button type="submit" class="btn btn-primary" id="btn-submit">
+                        <span class="btn-text">Add Task to Database</span>
+                    </button>
+                </form>
+
+                <!-- Architecture Summary Box -->
+                <div class="arch-box">
+                    <h4>🛠️ Container Topology</h4>
+                    <ul>
+                        <li><strong>Network:</strong> <code>taskmanager-net</code> (Bridge)</li>
+                        <li><strong>Volume:</strong> <code>taskmanager_pgdata</code> (Mounted)</li>
+                        <li><strong>Port Binding:</strong> <code>0.0.0.0:5000</code> &rarr; <code>5000</code></li>
+                        <li><strong>Restart Policy:</strong> <code>on-failure</code></li>
+                    </ul>
+                </div>
+            </aside>
+
+            <!-- Right: Task List and Filter Toolbar -->
+            <main class="content-card">
+                <div class="toolbar">
+                    <div class="filter-tabs">
+                        <button class="tab-btn active" data-filter="all">All Tasks</button>
+                        <button class="tab-btn" data-filter="pending">Pending</button>
+                        <button class="tab-btn" data-filter="completed">Completed</button>
+                    </div>
+                    <div class="search-box">
+                        <input type="text" id="search-input" placeholder="Search tasks...">
+                    </div>
+                </div>
+
+                <!-- Task List Container -->
+                <div class="task-list" id="task-list">
+                    <div class="empty-state">
+                        <div class="spinner"></div>
+                        <p>Loading tasks from database...</p>
+                    </div>
+                </div>
+            </main>
+        </div>
+
+        <!-- Footer -->
+        <footer class="footer">
+            <p>CCS3308 - Virtualization and Containers | Assignment 1 &bull; Docker Multi-Container Web Architecture</p>
+        </footer>
+    </div>
+
+    <script src="{{ url_for('static', filename='app.js') }}"></script>
+</body>
+</html>

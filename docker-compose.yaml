@@ -1,0 +1,56 @@
+services:
+  # Service 1: PostgreSQL Relational Database Service
+  taskmanager-db:
+    image: postgres:16-alpine
+    container_name: taskmanager-db
+    restart: on-failure
+    environment:
+      POSTGRES_DB: taskdb
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgrespassword
+    volumes:
+      - taskmanager_pgdata:/var/lib/postgresql/data
+    ports:
+      - "5432:5432"
+    networks:
+      - taskmanager-net
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres -d taskdb"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 10s
+
+  # Service 2: Flask Web Frontend & API Service
+  taskmanager-web:
+    build:
+      context: ./app
+      dockerfile: Dockerfile
+    image: taskmanager-web:latest
+    container_name: taskmanager-web
+    restart: on-failure
+    environment:
+      DB_HOST: taskmanager-db
+      DB_PORT: 5432
+      DB_NAME: taskdb
+      DB_USER: postgres
+      DB_PASSWORD: postgrespassword
+      APP_PORT: 5000
+    ports:
+      - "${APP_PORT:-5000}:5000"
+    networks:
+      - taskmanager-net
+    depends_on:
+      taskmanager-db:
+        condition: service_healthy
+
+# Named Persistent Volume
+volumes:
+  taskmanager_pgdata:
+    name: taskmanager_pgdata
+
+# User-Defined Bridge Network
+networks:
+  taskmanager-net:
+    name: taskmanager-net
+    driver: bridge
